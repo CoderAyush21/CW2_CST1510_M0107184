@@ -1,6 +1,7 @@
 import bcrypt
 import os
 
+
 USER_DATA_FILE = "users.txt"
 
  # function to produce hashed password
@@ -38,22 +39,23 @@ def user_exists(userName):
        return "Path does not exist"
    with open(USER_DATA_FILE,"r") as f :
        for line in f.readlines() :
-           stored_username, _ = line.strip().split(",", 1)
+           stored_username, _ , _ = line.strip().split(",", 2)
            if stored_username == userName:
                return True
        return False    
        
  # function for user registration
-def register_user(user_name, password) :
+def register_user(user_name, password,role) :
     if user_exists(user_name) == True:
         print(f"Username {user_name} already exists ! ")
         return 
     
     hashed_password = hash_password(password) 
     with open(USER_DATA_FILE, "a") as f: 
-        f.write(f"{user_name},{hashed_password}\n") 
+        f.write(f"{user_name},{hashed_password},{role}\n") 
     print(f"User '{user_name}' registered.")
-
+# function for failed to login
+ 
 # function to login existing user
 def login_user(userName1, password1):
   if not os.path.exists(USER_DATA_FILE):
@@ -62,10 +64,10 @@ def login_user(userName1, password1):
 
   with open(USER_DATA_FILE, "r") as f:
     for line in f:
-     stored_username, stored_hash = line.strip().split(",", 1)
+     stored_username, stored_hash, role = line.strip().split(",", 2)
      if stored_username == userName1:
         if verify_password(password1, stored_hash):
-         print("Login successful!")
+         print(f"Login successful for Role {role}!")
          return True
         else:
          print("Incorrect password.")
@@ -137,9 +139,13 @@ def main():
             if password != password_confirm:
                 print("Error: Passwords do not match.")
                 continue
-            
+            # Ask user to enter a role
+            role = input("Enter a role [user, analyst, admin] : ").strip().lower()
+            if role not in ["user", "analyst", "admin"] :
+               print("Invalid input ! Default role set to 'user' ")
+               role= "user"
             # Register the user
-            register_user(username, password)
+            register_user(username, password,role)
         
         elif choice == '2':
             # Login flow

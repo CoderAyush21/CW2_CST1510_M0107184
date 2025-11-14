@@ -1,6 +1,5 @@
 # Python Project for CST1510
 
-
  # Week 7: Secure Authentication System
  Student Name: Ayush Mani Tripathi
  Student ID: M01071841
@@ -18,4 +17,4 @@
  -Hashing Algorithm: bcrypt with automatic salting
  -Data Storage: Plain text file (`users.txt`) with comma-separated values
  -Password Security: One-way hashing, no plaintext storage
- -Validation: Username (3-20 alphanumeric characters), Password (6-50 characters)
+ -Validation: Username (More than 3 characters long and must be of valid type), Password (More than 8 characters long)
