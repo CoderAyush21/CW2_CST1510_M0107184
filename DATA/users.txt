@@ -1,1 +1,3 @@
-Ayush,$2b$12$lKoXwuUA1hvnCDL2fB2kZeeeMDRRWBntEXpC0dmh1XDTk6SRJW.Pe
+Abhi,$2b$12$YmP//dYgil06u0hGrD41Ze7.KNcjeSNdE87X1DNqRoung5qY22bO6,admin
+Ayush,$2b$12$mPp5JPhYjNVS./h5N93X7.QlNBa4MmXVhUhTXYi/RLazVCSzhjHA.,analyst
+Sam,$2b$12$6ry4zrn85ZyOqAXT3rl8w.cy.xXewO3V/tbGmNUopdZogXxASxOtm,user
