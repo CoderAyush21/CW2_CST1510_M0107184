@@ -1,6 +1,7 @@
 from app.data.db import connect_database
 import sqlite3
 import bcrypt
+from pathlib import Path
 
 print("=" * 60)
 print("User Authentication Service")
@@ -45,9 +46,17 @@ def user_exists(userName):
 
  # function for user registration
 def register_user(user_name, password,role) :
+
+    is_valid_user, user_msg = validate_userName(user_name)
+    if not is_valid_user:
+     return False, user_msg
+
+    is_valid_pass, pass_msg = validate_password(password)
+    if not is_valid_pass:
+     return False, pass_msg
+
     if user_exists(user_name) == True:
-        print(f"Username {user_name} already exists ! ")
-        return 
+     return False, f"Username {user_name} already exists ! "
     
     hashed_password = hash_password(password) 
     
@@ -60,9 +69,9 @@ def register_user(user_name, password,role) :
             (user_name, hashed_password, role)
         )
         conn.commit()
-        print(f"User '{user_name}' registered.")
+        return True, f"User '{user_name}' registered successfully."
     except sqlite3.Error as e:
-        print(f"Error registering user: {e}")
+        return False, "Registration failed due to a database error."
     finally:
         conn.close()
 
@@ -72,8 +81,7 @@ def login_user(userName1, password1):
 
     conn = connect_database()
     if not conn:
-        print("Cannot connect to database.")
-        return False
+        return False , "Database connection error."
         
     cursor = conn.cursor()
     
@@ -86,18 +94,15 @@ def login_user(userName1, password1):
     conn.close()
 
     if user_data is None:
-        print("Username not found!")
-        return False
+        return False, "Username not found!"
     
     stored_hash, role = user_data
     
     # Verify the password against the retrieved hash
     if verify_password(password1, stored_hash):
-        print(f"Login successful for Role {role}!")
-        return True
+        return True, f"Login successful for Role {role}!"
     else:
-        print("Incorrect password.")
-        return False
+        return False, "Incorrect password."
     
 #validation for username
 def validate_userName(user_name2) -> tuple[bool,str]: 
@@ -127,7 +132,7 @@ def validate_password(password) -> tuple[bool,str] :
 print("=" * 60)
 print("User Migration Script")
 print("=" * 60)
-def migrate_users_from_file(conn, filepath="DATA"/ "users.txt"):
+def migrate_users_from_file(conn, filepath= Path("DATA")/ "users.txt"):
 
     if not filepath.exists():
         print(f"⚠️  File not found: {filepath}")
