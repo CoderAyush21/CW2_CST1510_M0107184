@@ -1,7 +1,7 @@
 from app.data.db import connect_database
 import pandas as pd
 
-def insert_ticket(priority, description, status, assigned_to=None, resolution_time_hours=None):
+def insert_ticket(priority, description, status, assigned_to=None, resolution_time_hours=None, created_at = None):
     """Insert a new IT ticket."""
     conn = connect_database()
     cursor = conn.cursor()
