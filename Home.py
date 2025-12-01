@@ -3,6 +3,8 @@ import sys
 import os
 
 from PIL import Image
+
+
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
 
@@ -23,7 +25,7 @@ if "show_register" not in st.session_state:
 
 if not st.session_state.logged_in:
     
-        st.markdown(
+    st.markdown(
             """
           <h1 style="text-align:center; 
                     font-size:43px; 
@@ -35,12 +37,13 @@ if not st.session_state.logged_in:
            <p style="text-align:center; 
               font-size:22px; 
               font-family:'Segoe UI', 'Helvetica Neue', sans-serif; 
-              font-weight:500; 
+              font-weight:bold; 
               background: linear-gradient(90deg, #00C9FF, #92FE9D); 
               -webkit-background-clip: text; 
               -webkit-text-fill-color: transparent; 
               margin-top:10px; 
-              text-shadow: 1px 1px 2px rgba(0,0,0,0.15);">
+              text-shadow: 1px 1px 2px rgba(0,0,0,0.15);
+              opacity : 0.95;">
         Unlock insights across multiple domains with ease
             </p>
 
@@ -50,40 +53,35 @@ if not st.session_state.logged_in:
 
 
 
-        st.markdown(
+    st.markdown(
             """
             <div style="width:100%; text-align:center; margin-top:px;">
-                <h1 style="color:#1E90FF; font-size: 35px; text-align:center;">Access Your Dashboard</h1>
+                <h1 style="color:#1E90FF; font-size: 38px; opacity : 0.95; text-align:center;">Access Your Dashboards</h1>
             </div>
             """,
             unsafe_allow_html=True
         )
 
 
-        # Button for login/registration
+    # Button for login/registration
       
-        col= st.columns(1)[0]
+    col1,col2,col3= st.columns([3.8,2,4])
         
-        with col: 
-                 
+    with col2:
+                login_btn = st.button("Login", key="login_button", use_container_width=True)
+                register_btn = st.button("Register", key="register_button", use_container_width=True)
 
-            col1,col2, col3= st.columns([2,2,2])
-
-            with col2:
-                b1,b2= st.columns([1,1])
-                with b1:
-                  if st.button("Login", key="login_button"):
+                if login_btn:
                     st.session_state.show_login = True
                     st.session_state.show_register = False
 
-                with b2:
-                  if st.button("Register", key="register_button"):
+                if register_btn:
                     st.session_state.show_register = True
                     st.session_state.show_login = False
 
 
 
-        if st.session_state.show_login and not st.session_state.logged_in:
+    if st.session_state.show_login and not st.session_state.logged_in:
             st.subheader("User Login")
             username = st.text_input("Username", key="login_user")
             password = st.text_input("Password", type="password", key="login_pass")
@@ -100,7 +98,7 @@ if not st.session_state.logged_in:
                     st.error(msg)
 
 
-        if st.session_state.show_register and not st.session_state.logged_in:
+    if st.session_state.show_register and not st.session_state.logged_in:
             st.subheader("User Register")
             new_user = st.text_input("New Username", key="reg_user")
             new_pass = st.text_input("New Password", type="password", key="reg_pass")
@@ -133,15 +131,38 @@ elif st.session_state.logged_in:
         </h1>
         <p style="
             font-size: 20px;
-            color: #80CBC4;
+            color: #87CEEB;
+            font_weight : bold;
             line-height: 1.5;
         ">
-            You are now logged in. Select a dashboard from the sidebar to explore your domains.
+            You are now logged in. Select a dashboard from the sidebar to explore the below listed domains.
         </p>
     </div>
     """, unsafe_allow_html=True)
-    img = Image.open("app\Dashboard.jpg")  
-    st.image(img, use_container_width=True)
+    
+  
+    
+    # Use columns to present the domains side-by-side
+    col1,col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("### 💻 IT Operations")
+        st.info("Monitor performance and application stability to ensure maximum service reliability.")
+        
+
+        
+    with col2:
+        st.markdown("### 🧠 Data Science")
+        st.success("Govern data resource consumption and ensure the accuracy and quality of production models.")
+
+
+    with col3:
+        st.markdown("### 🛡️ Cybersecurity")
+        st.warning("Monitor the active threat landscape and analyze security team response bottlenecks.")
+        
+
+
+
 
       
 if st.session_state.logged_in:
