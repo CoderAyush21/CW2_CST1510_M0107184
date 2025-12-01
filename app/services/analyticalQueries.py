@@ -57,9 +57,9 @@ def get_datasets_by_uploader(conn):
     df = pd.read_sql_query(query, conn)
     return df
 
-def get_large_datasets(conn, min_rows=1000):
+def get_large_datasets(conn, min_rows):
     
-    # Find datasets with more than 1000 rows.
+ 
     
     query = """
     SELECT name, rows, columns, uploaded_by
@@ -71,6 +71,18 @@ def get_large_datasets(conn, min_rows=1000):
     df = pd.read_sql_query(query, conn, params=(min_rows,))
     return df   
 
+def get_dataset_upload_trends_monthly(conn):
+    
+    # Monthly datsets upload trends.
+    
+    query = """
+    SELECT strftime('%Y-%m', upload_date) AS month, COUNT(*) AS upload_count
+    FROM datasets_metadata
+    GROUP BY month
+    ORDER BY month ASC
+    """
+    df = pd.read_sql_query(query, conn)
+    return df
 
 # Analytical queries for IT tickets.
 
@@ -113,4 +125,17 @@ def get_slow_resolution_tickets(conn, min_resolution_time = 24) :
     ORDER BY avg_resolution DESC
     """
     df = pd.read_sql_query(query, conn, params=(min_resolution_time,))
+    return df
+
+def get_avg_resolution_by_staff(conn):
+    # Average resolution time by assigned staff member.
+    query = """
+        SELECT assigned_to, AVG(resolution_time_hours) AS avg_resolution_time
+        FROM it_tickets
+        WHERE resolution_time_hours IS NOT NULL
+        GROUP BY assigned_to
+        ORDER BY avg_resolution_time DESC
+    """
+    
+    df = pd.read_sql_query(query, conn)
     return df
