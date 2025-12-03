@@ -4,3 +4,4 @@ _pycache_/
 .env
 .vscode
 .idea/
+secrets.toml
