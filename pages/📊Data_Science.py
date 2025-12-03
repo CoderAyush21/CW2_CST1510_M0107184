@@ -7,6 +7,11 @@ import pandas as pd
 from datetime import datetime
 import time
 
+from google import genai
+from google.genai import types
+# Use of gemini API
+client_dataset= genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
 st.set_page_config(
     page_title="Data Science",
     layout="wide",
@@ -139,3 +144,67 @@ with col1:
                             st.error("Dataset ID not found")
                 else:
                     st.warning("Please confirm deletion by checking the box.")
+
+
+
+col1,col2= st.columns([0.8,0.2])
+with col1:
+    # AI Analyser for the Big Data
+    st.subheader("AI Datasets Analyser")
+
+    if not df_datasets.empty :
+        dataset_options = [
+            f"{row['dataset_id']}: {row['name']}"
+            for index, row in df_datasets.iterrows()
+        ]
+
+        # Let the user pick a dataset from the readable options list
+        selected_id = st.selectbox(
+            "Select Dataset to analyse",
+            range(len(df_datasets)),
+            format_func=lambda i : dataset_options[i]
+        )
+        
+
+        dataset= df_datasets.iloc[selected_id]
+
+        # Display incident details
+
+        st.subheader("ℹ️ Dataset Details")
+        st.write(f"**Name:** {dataset['name']}")
+        st.write(f"**Rows:** {dataset['rows']}")
+        st.write(f"**Columns:** {dataset['columns']}")
+        st.write(f"**Uploaded by :** {dataset['uploaded_by']}")
+
+
+    if st.button("Analyse with AI"):
+        with st.spinner("AI analysing dataset..."):
+            # Create the analysis prompt
+            analysis_prompt= f""" Analyse this dataset :
+                                Name : {dataset['name']}
+                                Rows : {dataset['rows']}
+                                Columns : {dataset['columns']}
+                                Uploaded by : {dataset['uploaded_by']}
+
+                                Provide :
+                                1. Dataset analysis and insights
+                                2. Visualisation recommendations
+                                3. Statistical method guidance
+                                4. ML model suggestions """
+            # Call the Gemini API
+            response = client_dataset.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                config=types.GenerateContentConfig(
+                    system_instruction="You are a data science expert."),
+                contents={"role" : "user", "parts" : [{"text": analysis_prompt}]},
+            )
+
+
+            # Display the AI analysis from Gemini
+
+            st.subheader("🚀 AI Analysis")
+            container= st.empty()
+            full_reply= ""
+            for chunk in response:
+                full_reply+= chunk.text
+                container.markdown(full_reply)

@@ -1,7 +1,7 @@
 import streamlit as st
 import sys
 import os
-
+import time
 from PIL import Image
 
 
@@ -112,6 +112,7 @@ if not st.session_state.logged_in:
                 else:
                     st.error(msg)
 elif st.session_state.logged_in: 
+    time.sleep(1)
     st.markdown(f"""
     <div style="
         display: flex;

@@ -7,6 +7,14 @@ from app.data.db import connect_database
 from app.services.analyticalQueries import  get_high_severity_by_status, get_incident_types_with_many_cases
 import time
 
+
+from google import genai
+from google.genai import types
+# Use of gemini API
+client_incident= genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+
+
 conn = connect_database()
 
 st.set_page_config(
@@ -269,5 +277,69 @@ with col1:
                             st.error("Incident ID not found")
                 else:
                     st.warning("Please confirm deletion by checking the box.")
+
+
+
+col1,col2= st.columns([0.8,0.2])
+with col2:
+    # AI Analyser for CyberIncidents
+    st.subheader("AI Incidents Analyser")
+
+    if not df_incidents.empty :
+        incident_options = [
+            f"{row['incident_id']}: {row['category']} - {row['severity']}"
+            for index, row in df_incidents.iterrows()
+        ]
+
+        # Let the user pick an incident from the readable options list
+        selected_id = st.selectbox(
+            "Select Incident to analyse",
+            range(len(df_incidents)),
+            format_func=lambda id : incident_options[id]
+        )
+        
+
+        incident= df_incidents.iloc[selected_id]
+
+        # Display incident details
+
+        st.subheader("ℹ️ Incident Details")
+        st.write(f"**Type:** {incident['category']}")
+        st.write(f"**Severity:** {incident['severity']}")
+        st.write(f"**Description:** {incident['description']}")
+        st.write(f"**Status:** {incident['status']}")
+
+
+    if st.button("Analyse with AI"):
+        with st.spinner("AI analysing incident..."):
+            # Create the analysis prompt
+            analysis_prompt= f""" Analyse this cybersecurity incident :
+                                Type : {incident['category']}
+                                Severity : {incident['severity']}
+                                Description : {incident['description']}
+                                Status : {incident['status']}
+
+                                Provide :
+                                1. Incident analysis and triage
+                                2. Threat intelligence lookup
+                                3. Security best practices
+                                4. Remediation recommendations """
+            # Call the Gemini API
+            response = client_incident.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                config=types.GenerateContentConfig(
+                    system_instruction="You are a cybersecurity expert.Analyse incidents, threats and vulnerabilities. Provide technical guidance using MITRE, ATT&CK,CVE references."),
+                contents={"role" : "user", "parts" : [{"text": analysis_prompt}]},
+            )
+
+
+            # Display the AI analysis from Gemini
+
+            st.subheader("🚀 AI Analysis")
+            container= st.empty()
+            full_reply= ""
+            for chunk in response:
+                full_reply+= chunk.text
+                container.markdown(full_reply)
 
 
