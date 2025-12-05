@@ -28,6 +28,22 @@ def get_high_severity_by_status(conn):
     df = pd.read_sql_query(query, conn)
     return df
 
+
+def get_high_severity_incidents(conn):
+    # Get all high severity incidents
+
+    query = """
+        SELECT *
+        FROM cyber_incidents
+        WHERE severity = 'High'
+        ORDER BY incident_id ASC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    return df
+
+
+
 def get_incident_types_with_many_cases(conn, min_count=5):
    
     # Find incident types with more than min_count cases.
@@ -99,6 +115,21 @@ def get_tickets_by_priority(conn):
     df = pd.read_sql_query(query, conn)
     return df
 
+
+def get_high_priority_tickets(conn):
+    # Get all high priority tickets
+
+    query = """
+        SELECT *
+        FROM it_tickets
+        WHERE priority = 'High'
+        ORDER BY ticket_id ASC
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    return df
+
+
 def get_high_priority_tickets_by_status(conn):
     
     # Count high priority tickets by status.
@@ -113,9 +144,9 @@ def get_high_priority_tickets_by_status(conn):
     df = pd.read_sql_query(query, conn)
     return df
 
-def get_slow_resolution_tickets(conn, min_resolution_time = 24) :
+def get_slow_resolution_tickets_by_status(conn, min_resolution_time = 24) :
     
-    # Find tickets with resolution time greater than min_resolution_time hours.
+    # Find tickets with resolution time greater than min_resolution_time hours by status.
     
     query = """
     SELECT status, AVG(resolution_time_hours) as avg_resolution
@@ -138,4 +169,18 @@ def get_avg_resolution_by_staff(conn):
     """
     
     df = pd.read_sql_query(query, conn)
+    return df
+
+
+def get_slow_resolution_tickets_only(conn, min_resolution_time=24):
+    # Find all tickets with resolution time greater than min_resolution_time hours.
+    
+    query = """
+    SELECT *
+    FROM it_tickets
+    WHERE resolution_time_hours > ?
+    ORDER BY resolution_time_hours DESC
+    """
+    
+    df = pd.read_sql_query(query, conn, params=(min_resolution_time,))
     return df
