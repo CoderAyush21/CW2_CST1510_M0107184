@@ -2,7 +2,7 @@ import streamlit as st
 import sys
 import os
 import time
-from PIL import Image
+
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,7 +19,6 @@ if "show_login" not in st.session_state:
 
 if "show_register" not in st.session_state:
     st.session_state.show_register = False
-
 
 
 
@@ -80,8 +79,9 @@ if not st.session_state.logged_in:
                     st.session_state.show_login = False
 
 
-
+    left,middle,right= st.columns([1,13,1])
     if st.session_state.show_login and not st.session_state.logged_in:
+           with middle: 
             st.subheader("User Login")
             username = st.text_input("Username", key="login_user")
             password = st.text_input("Password", type="password", key="login_pass")
@@ -97,8 +97,11 @@ if not st.session_state.logged_in:
                 else:
                     st.error(msg)
 
+    
+    
 
     if st.session_state.show_register and not st.session_state.logged_in:
+           with middle: 
             st.subheader("User Register")
             new_user = st.text_input("New Username", key="reg_user")
             new_pass = st.text_input("New Password", type="password", key="reg_pass")
