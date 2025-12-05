@@ -20,19 +20,45 @@ st.set_page_config(
 st.title("DATA SCIENCE ANALYTICS DASHBOARD")
 
 if st.session_state.get("logged_in") != True:
-    st.error("Please Log in")
+    st.error("Please Log in to access the DataScience Page !")
+
+    if st.button("Return to Home Page"):
+     st.switch_page("Home.py")
     st.stop()
 
 conn=connect_database()
+# get all datasets
+df_datasets= get_all_datasets()
+total_datasets= len(df_datasets)
 
-df_datasets = get_large_datasets(conn, min_rows=1000)
+# get all large datasets
+df_large_datasets = get_large_datasets(conn, min_rows=1000)
+large_datasets= len(df_large_datasets)
+
+# Insights for datasets
+st.subheader("Datasets Insights")
+left,middle,right = st.columns([1,1,1])
+with left:
+    st.metric(
+        label="Total Datasets",
+        value=f"{total_datasets:,}", 
+    ) 
+with middle:
+    st.metric(
+        label="Total large datasets",
+        value=f"{large_datasets:,}",
+    ) 
+
+
+
+
 col1,col2= st.columns([0.9,0.1])
 with col1:
     st.markdown("### Datasets Resource Consumption Analysis")
 
 
     fig = px.bar (
-        df_datasets,    
+        df_large_datasets,    
         x= "rows",
         y="name",
         orientation='h',
@@ -82,14 +108,14 @@ with col2:
 
     st.plotly_chart(fig3, use_container_width=True)
 
-df_datasets= get_all_datasets()
+
 
 # Get all datsets ids as list for the update form
 all_datasets_ids= df_datasets['dataset_id'].tolist()
 st.subheader("Manage Datasets")
 col1,col2= st.columns([0.8,0.2])
 with col1:
-    action_choice = st.selectbox("Select Action", ([" Add Dataset", " Update Dataset Name", "Delete Dataset"]), key="ds_action_choice")
+    action_choice = st.selectbox("Select Action", ([" Add Dataset", " Update Dataset Name", "Delete Dataset","Upload CSV"]), key="ds_action_choice")
 
     if action_choice == " Add Dataset":
         # Add Dataset Form
@@ -145,12 +171,51 @@ with col1:
                 else:
                     st.warning("Please confirm deletion by checking the box.")
 
+    elif action_choice == "Upload CSV" :
+        st.markdown("### Upload CSV")
+        uploaded_file= st.file_uploader("Upload CSV file", type= ["csv"])
+        if uploaded_file:
+          try:
+            csv_df= pd.read_csv(uploaded_file)
+            # Display the csv file
+            st.write("CSV file contents preview")
+            st.dataframe(csv_df)
+
+            required_columns= {"dataset_id","name,rows","columns","uploaded_by","upload_date"}
+            csv_columns= set(csv_df.columns)
+
+            missing_column= required_columns - csv_columns
+            extra_column= csv_columns - required_columns
+
+            if missing_column:
+                st.error(f"Missing required column(s) : {', '.join(missing_column)}")
+                st.stop()
+            if extra_column:
+                st.warning(f"⚠️ Extra columns ignored: {', '.join(extra_column)}")
+            
+            st.success("CSV file validated")
+
+            if st.button("Upload CSV"):
+                for _, row in csv_df.iterrows():
+                        insert_dataset(
+                            row["name"],
+                            row["rows"],
+                            row["columns"],
+                            row["uploaded_by"],
+                            datetime.now().date()
+                        )
+                st.success("CSV data added successfully!")
+                time.sleep(2)
+                st.rerun()
+          except Exception as e :
+              st.error("Error reading the CSV file !")
 
 
+st.markdown("---")
 col1,col2= st.columns([0.8,0.2])
 with col1:
     # AI Analyser for the Big Data
-    st.subheader("AI Datasets Analyser")
+    st.subheader("🔎 AI Datasets Analyser")
 
     if not df_datasets.empty :
         dataset_options = [

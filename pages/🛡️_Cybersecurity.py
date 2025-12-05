@@ -4,7 +4,7 @@ from app.data.incidents import get_all_incidents, insert_incident, update_incide
 import plotly.express as px
 from datetime import datetime
 from app.data.db import connect_database
-from app.services.analyticalQueries import  get_high_severity_by_status, get_incident_types_with_many_cases
+from app.services.analyticalQueries import  get_high_severity_by_status, get_incident_types_with_many_cases, get_high_severity_incidents
 import time
 
 
@@ -26,7 +26,9 @@ st.title("CYBERSECURITY INTELLIGENCE DASHBOARD")
 
 
 if st.session_state.get("logged_in") != True:
-    st.error("Please Log in")
+    st.error("Please Log in to access the Cybersecurity Page !")
+    if st.button("Return to Home Page"):
+     st.switch_page("Home.py")
     st.stop()
 
 
@@ -35,12 +37,12 @@ df_incidents = get_all_incidents()
 
 
 
+
 # Convert the timestamp column to datetime objects
 df_incidents['timestamp'] = pd.to_datetime(df_incidents['timestamp'], errors='coerce')
 
 
-# T0 display Phishing Incidents from the table in first half of the web page
-st.subheader("Phishing Incidents Analysis")
+
 
 df_phishing = df_incidents[
     df_incidents['category'].str.contains('Phishing', case=False, na=False)
@@ -68,19 +70,38 @@ total_incidents_delta = current_total_incidents - st.session_state.previous_tota
 phishing_percent_delta = current_phishing_percentage - st.session_state.previous_phishing_percentage
 phishing_percent_delta_str = f"{phishing_percent_delta:.1f}%"
 
-# Display the final layout
-col1,col2= st.columns([0.6,0.4])
-with col1:
-    st.line_chart(phishing_trend)
 
-with col2:
+# Get high severity incidents + find total
+high_severity= get_high_severity_incidents(conn)
+total_high_severity= len(high_severity)
+# Display insights
+
+st.subheader("Cyber Incidents Insights")
+left,middle,right = st.columns([1,1,1])
+with left:
     st.metric(
         label="Total Incidents",
         value=f"{current_total_incidents:,}",
         delta=total_incidents_delta, 
         delta_color="normal" 
     ) 
+with middle:
+    st.metric(
+        label="High severity incidents",
+        value=f"{total_high_severity:,}",
+    ) 
+
+# To display Phishing Incidents from the table in first half of the web page
+st.subheader("Phishing Threats Analysis")
     
+# Display the final layout
+col1,col2= st.columns([0.6,0.4])
+with col1:
+    st.line_chart(phishing_trend)
+
+with col2:
+    spacer= st.empty()
+    spacer.text("                               ")
     st.metric(
         label="Phishing % of Total",
         value=f"{current_phishing_percentage:.1f}%",
@@ -217,7 +238,7 @@ all_incident_ids= df_incidents['incident_id'].tolist()
 st.subheader("Cyber Incidents Management")
 col1,col2= st.columns([0.8,0.2])
 with col1:
-    action_choice = st.selectbox("Select Action", ([" Add Incident", " Update Status", "Delete Incident"]), key="action_choice")
+    action_choice = st.selectbox("Select Action", ([" Add Incident", " Update Status", "Delete Incident","Upload CSV"]), key="action_choice")
 
 
     if action_choice == " Add Incident":
@@ -278,12 +299,53 @@ with col1:
                 else:
                     st.warning("Please confirm deletion by checking the box.")
 
+    elif action_choice == "Upload CSV" :
+        st.markdown("### Upload CSV")
+        uploaded_file= st.file_uploader("Upload CSV file", type= ["csv"])
+        if uploaded_file:
+          try:
+            csv_df= pd.read_csv(uploaded_file)
+            # Display the csv file
+            st.write("CSV file contents preview")
+            st.dataframe(csv_df)
 
+            required_columns= {"incident_id","timestamp","severity", "category", "status", "description"}
+            csv_columns= set(csv_df.columns)
+
+            missing_column= required_columns - csv_columns
+            extra_column= csv_columns - required_columns
+
+            if missing_column:
+                st.error(f"Missing required column(s) : {', '.join(missing_column)}")
+                st.stop()
+            if extra_column:
+                st.warning(f"⚠️ Extra columns ignored: {', '.join(extra_column)}")
+            
+            st.success("CSV file validated")
+
+            if st.button("Upload CSV"):
+                for _, row in csv_df.iterrows():
+                        insert_incident(
+                            row["severity"],
+                            row["category"],
+                            row["status"],
+                            row["description"],
+                            row["reported_by"],
+                            datetime.now()
+                        )
+                st.success("CSV data added successfully!")
+                time.sleep(2)
+                st.rerun()
+          except Exception as e :
+              st.error("Error reading the CSV file !")
+              
+            
+st.markdown("---")
 
 col1,col2= st.columns([0.8,0.2])
-with col2:
+with col1:
     # AI Analyser for CyberIncidents
-    st.subheader("AI Incidents Analyser")
+    st.subheader("🔎 AI Incidents Analyser")
 
     if not df_incidents.empty :
         incident_options = [
