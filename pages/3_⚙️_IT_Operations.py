@@ -339,3 +339,14 @@ with col1:
             for chunk in response:
                 full_reply+= chunk.text
                 container.markdown(full_reply)
+
+
+
+if st.session_state.get("logged_in", False):
+
+    if st.sidebar.button("Logout", key="logout_btn"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.session_state.show_login = False
+        st.session_state.show_register = False
+        st.rerun()
