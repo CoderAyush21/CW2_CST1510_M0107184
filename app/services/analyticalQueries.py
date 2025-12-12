@@ -54,80 +54,75 @@ def get_incident_types_with_many_cases(db: DatabaseManager, min_count=5):
 
 
 # Analytical queries for datasets.
-def get_datasets_by_uploader(conn):
-    
-    # Count datasets uploaded by each user.
-    
+def get_datasets_by_uploader(db: DatabaseManager):
     query = """
     SELECT uploaded_by, COUNT(*) as dataset_count
     FROM datasets_metadata
     GROUP BY uploaded_by
     ORDER BY dataset_count DESC
     """
-    df = pd.read_sql_query(query, conn)
-    return df
+    rows = db.fetch_all(query)
+    df_datasets= pd.DataFrame(rows, columns=["uploaded_by", "dataset_count"])
+    return df_datasets
 
-def get_large_datasets(conn, min_rows):
-    
- 
-    
+def get_large_datasets(db: DatabaseManager, min_rows: int):
+
     query = """
     SELECT name, rows, columns, uploaded_by
     FROM datasets_metadata
-    WHERE rows > ? 
+    WHERE rows > ?
     ORDER BY rows DESC
     """
-    # ? is used to avoid SQL injection.
-    df = pd.read_sql_query(query, conn, params=(min_rows,))
-    return df   
+    rows = db.fetch_all(query, (min_rows,))
+    df_datasets= pd.DataFrame(rows, columns=[
+        "name", "rows", "columns", "uploaded_by"
+    ])
+    return df_datasets
 
-def get_dataset_upload_trends_monthly(conn):
-    
-    # Monthly datsets upload trends.
-    
+
+def get_dataset_upload_trends_monthly(db: DatabaseManager):
+
     query = """
     SELECT strftime('%Y-%m', upload_date) AS month, COUNT(*) AS upload_count
     FROM datasets_metadata
     GROUP BY month
     ORDER BY month ASC
     """
-    df = pd.read_sql_query(query, conn)
-    return df
+    rows = db.fetch_all(query)
+    df_datasets= pd.DataFrame(rows, columns=["month", "upload_count"])
+    return df_datasets
+
 
 # Analytical queries for IT tickets.
 
-def get_tickets_by_priority(conn):
-    
-    # Count tickets by priority level.
-    
+def get_tickets_by_priority(db: DatabaseManager):
+
     query = """
     SELECT priority, COUNT(*) as count
     FROM it_tickets
     GROUP BY priority
     ORDER BY count DESC
     """
-    df = pd.read_sql_query(query, conn)
-    return df
+    rows = db.fetch_all(query)
+    df_tickets= pd.DataFrame(rows, columns=["priority", "count"])
+    return df_tickets
 
-
-def get_high_priority_tickets(conn):
-    # Get all high priority tickets
+def get_high_priority_tickets(db: DatabaseManager):
 
     query = """
-        SELECT *
-        FROM it_tickets
-        WHERE priority = 'High'
-        ORDER BY ticket_id ASC
+    SELECT *
+    FROM it_tickets
+    WHERE priority = 'High'
+    ORDER BY ticket_id ASC
     """
-    
-    df = pd.read_sql_query(query, conn)
-    return df
+    rows = db.fetch_all(query)
+    df_tickets= pd.DataFrame(rows, columns=[
+        "ticket_id", "title", "priority", "status",
+        "assigned_to", "resolution_time_hours", "timestamp"
+    ])
+    return df_tickets
 
-
-def get_high_priority_tickets_by_status(conn):
-    
-    # Count high priority tickets by status.
-    
+def get_high_priority_tickets_by_status(db: DatabaseManager):
     query = """
     SELECT status, COUNT(*) as count
     FROM it_tickets
@@ -135,13 +130,11 @@ def get_high_priority_tickets_by_status(conn):
     GROUP BY status
     ORDER BY count DESC
     """
-    df = pd.read_sql_query(query, conn)
-    return df
+    rows = db.fetch_all(query)
+    df_tickets= pd.DataFrame(rows, columns=["status", "count"])
+    return df_tickets
 
-def get_slow_resolution_tickets_by_status(conn, min_resolution_time = 24) :
-    
-    # Find tickets with resolution time greater than min_resolution_time hours by status.
-    
+def get_slow_resolution_tickets_by_status(db: DatabaseManager, min_resolution_time=24):
     query = """
     SELECT status, AVG(resolution_time_hours) as avg_resolution
     FROM it_tickets
@@ -149,11 +142,11 @@ def get_slow_resolution_tickets_by_status(conn, min_resolution_time = 24) :
     HAVING AVG(resolution_time_hours) > ?
     ORDER BY avg_resolution DESC
     """
-    df = pd.read_sql_query(query, conn, params=(min_resolution_time,))
-    return df
+    rows = db.fetch_all(query, (min_resolution_time,))
+    df_tickets= pd.DataFrame(rows, columns=["status", "avg_resolution"])
+    return df_tickets
 
-def get_avg_resolution_by_staff(conn):
-    # Average resolution time by assigned staff member.
+def get_avg_resolution_by_staff(db: DatabaseManager):
     query = """
         SELECT assigned_to, AVG(resolution_time_hours) AS avg_resolution_time
         FROM it_tickets
@@ -161,20 +154,20 @@ def get_avg_resolution_by_staff(conn):
         GROUP BY assigned_to
         ORDER BY avg_resolution_time DESC
     """
-    
-    df = pd.read_sql_query(query, conn)
-    return df
+    rows = db.fetch_all(query)
+    df_tickets= pd.DataFrame(rows, columns=["assigned_to", "avg_resolution_time"])
+    return df_tickets
 
-
-def get_slow_resolution_tickets_only(conn, min_resolution_time=24):
-    # Find all tickets with resolution time greater than min_resolution_time hours.
-    
+def get_slow_resolution_tickets_only(db: DatabaseManager, min_resolution_time=24):
     query = """
     SELECT *
     FROM it_tickets
     WHERE resolution_time_hours > ?
     ORDER BY resolution_time_hours DESC
     """
-    
-    df = pd.read_sql_query(query, conn, params=(min_resolution_time,))
-    return df
+    rows = db.fetch_all(query, (min_resolution_time,))
+    df_tickets= pd.DataFrame(rows, columns=[
+        "ticket_id", "title", "priority", "status",
+        "assigned_to", "resolution_time_hours", "timestamp"
+    ]) 
+    return df_tickets
