@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-from app.data.incidents import get_all_incidents, insert_incident, update_incident_status, delete_incident
 import plotly.express as px
 from datetime import datetime
-from app.data.db import connect_database
 from app.services.analyticalQueries import  get_high_severity_by_status, get_incident_types_with_many_cases, get_high_severity_incidents
 import time
 
@@ -14,8 +12,15 @@ from google.genai import types
 client_incident= genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 
+# Import Database manager and SecurityIncident class
 
-conn = connect_database()
+
+from app.advanced_services.database_manager import DatabaseManager
+from models.security_incident import SecurityIncident
+
+db = DatabaseManager("DATA/intelligence_platform.db")
+db.connect()
+
 
 st.set_page_config(
     page_title="Cybersecurity",
@@ -32,11 +37,39 @@ if st.session_state.get("logged_in") != True:
     st.stop()
 
 
+def load_incidents() -> list[SecurityIncident]:
+    rows = db.fetch_all(
+        "SELECT incident_id, category, severity, status, description, reported_by, timestamp "
+        "FROM cyber_incidents"
+    )
+    incidents_list: list[SecurityIncident] = []
+    for row in rows:
+        incident = SecurityIncident(
+            incident_id=row[0],
+            incident_type=row[1],
+            severity=row[2],
+            status=row[3],
+            description=row[4],
+            reported_by=row[5],
+            timestamp=row[6] if row[6] else datetime.now()
+        )
+        incidents_list.append(incident)
+    return incidents_list
 
-df_incidents = get_all_incidents()
+incidents = load_incidents()
+
+# Incidents are converted from objects to dataframes to be displayed as charts and graphs
 
 
-
+df_incidents = pd.DataFrame([{
+    "incident_id": i.get_id(),
+    "category": i.get_incident_type(),
+    "severity": i.get_severity(),
+    "status": i.get_status(),
+    "description": i.get_description(),
+    "reported_by": i.get_reported_by(),
+    "timestamp": i.get_timestamp()
+} for i in incidents])
 
 # Convert the timestamp column to datetime objects
 df_incidents['timestamp'] = pd.to_datetime(df_incidents['timestamp'], errors='coerce')
@@ -72,7 +105,7 @@ phishing_percent_delta_str = f"{phishing_percent_delta:.1f}%"
 
 
 # Get high severity incidents + find total
-high_severity= get_high_severity_incidents(conn)
+high_severity= get_high_severity_incidents(db)
 total_high_severity= len(high_severity)
 # Display insights
 
@@ -125,7 +158,6 @@ with col1:
 
 with col2:
 
-
     # Display Cyber Incidents Status Summary In Pie Chart 
     # assign resolved and active statuses
     resolved_statuses = ['Closed', 'Resolved']
@@ -159,12 +191,12 @@ with col2:
         marker=dict(line=dict(color='white', width=2))
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width= "stretch")
 
 
 
 
-df_many_cases = get_incident_types_with_many_cases(conn, min_count=5)
+df_many_cases = get_incident_types_with_many_cases(db, min_count=5)
 col1,col2= st.columns([0.9,0.1])
 with col1:
     st.markdown("### Top Incident Categories by Volume")
@@ -187,13 +219,13 @@ with col1:
                 yaxis={'categoryorder':'total ascending'} # Ensures categories are ordered top-to-bottom
             )
             
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, width= "stretch")
     else:
             st.info(f"No incident types found with more than minimum number of cases.")
 
 
 
-df_high_sev_status = get_high_severity_by_status(conn)
+df_high_sev_status = get_high_severity_by_status(db)
 
 # Display Cyber Incidents Bar Chart by Severity
 col1,col2= st.columns([0.6,0.4])
@@ -227,13 +259,13 @@ with col1:
         bargap=0.25,
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width= "stretch")
 
 
 
     
-# Get all incident ids as list for the update form
-all_incident_ids= df_incidents['incident_id'].tolist()
+# Get all incident ids for the update form
+all_incident_ids = [i.get_id() for i in incidents]
 
 st.subheader("Cyber Incidents Management")
 col1,col2= st.columns([0.8,0.2])
@@ -254,8 +286,17 @@ with col1:
 
         if submitted:
             incident_datetime= datetime.now()
+            new_incident = SecurityIncident(
+                incident_id=None,
+                incident_type=category,
+                severity=severity,
+                status=status,
+                description=description,
+                reported_by=reported_by,
+                timestamp=incident_datetime
+            )
             try :
-                insert_incident(severity,category,status,description,reported_by,incident_datetime)
+                new_incident.insert(db)
                 st.success("Incident added")
                 time.sleep(2)
                 st.rerun()
@@ -270,11 +311,13 @@ with col1:
             updated = st.form_submit_button("Update Status")
         if updated:
             try:
-                success = update_incident_status(incident_id, new_status)
-                if success:
-                    st.success("Incident status updated")
-                    time.sleep(2)
-                    st.rerun()
+                incident_fetched = SecurityIncident.load_by_id(db, incident_id)
+                if incident_fetched:
+                    success= incident_fetched.update_status(db,new_status)
+                    if success :
+                        st.success("Update Successfull")
+                        time.sleep(2)
+                        st.rerun()
                 else:
                     st.error("Incident ID not found")
             except Exception as e:
@@ -289,11 +332,13 @@ with col1:
 
             if submitted:
                 if st.checkbox("Confirm deletion of incident"):                
-                    deleted = delete_incident(incident_id)
-                    if deleted:
-                            st.success("Incident deleted")
-                            time.sleep(2)
-                            st.rerun()
+                    deleted_incident = SecurityIncident.load_by_id(db, incident_id)
+                    if deleted_incident:
+                            success= deleted_incident.delete(db)
+                            if success:
+                                st.success("Incident deleted")
+                                time.sleep(2)
+                                st.rerun()
                     else:
                             st.error("Incident ID not found")
                 else:
@@ -325,14 +370,17 @@ with col1:
 
             if st.button("Upload CSV"):
                 for _, row in csv_df.iterrows():
-                        insert_incident(
-                            row["severity"],
-                            row["category"],
-                            row["status"],
-                            row["description"],
-                            row["reported_by"],
-                            datetime.now()
-                        )
+                    incident_csv = SecurityIncident(
+                        incident_id=None,                        
+                        incident_type=row["category"],
+                        severity=row["severity"],
+                        status=row["status"],
+                        description=row["description"],
+                        reported_by=row.get("reported_by", None),
+                        timestamp=row.get("timestamp", None)
+                    )
+                    incident_csv.insert(db)
+
                 st.success("CSV data added successfully!")
                 time.sleep(2)
                 st.rerun()
