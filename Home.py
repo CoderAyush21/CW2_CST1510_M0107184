@@ -8,7 +8,16 @@ import time
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
 
-from app.services.user_service import login_user, register_user
+
+
+from app.advanced_services.database_manager import DatabaseManager
+from app.advanced_services.auth_manager import AuthManager  
+
+
+db = DatabaseManager("DATA/intelligence_platform.db")
+db.connect()
+auth = AuthManager(db)
+
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -87,7 +96,7 @@ if not st.session_state.logged_in:
             password = st.text_input("Password", type="password", key="login_pass")
         
             if st.button("Login", key="login_submit"):
-                sucess, msg= login_user(username, password)
+                sucess, msg= auth.login_user(username, password)
                 if sucess: 
                     st.session_state.logged_in = True
                     st.session_state.username = username
@@ -108,7 +117,7 @@ if not st.session_state.logged_in:
             user_role = st.selectbox("Select Role", options=["user", "admin","analyst"], key="reg_role")
         
             if st.button("Register", key="reg_submit"):
-                sucess, msg= register_user(new_user, new_pass, user_role)
+                sucess, msg= auth.register_user(new_user, new_pass, user_role)
                 if sucess: 
                     st.success(msg)
                     st.session_state.show_register = False

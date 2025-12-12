@@ -4,10 +4,10 @@ from app.advanced_services.database_manager import DatabaseManager
 
 
 class PasswordHasher:
-    '''
-    Class to manage hashing of passwords 
+    """
+    Class to manage hashing of passwords
 
-    '''
+    """
 
     @staticmethod
     def hash_password(plain: str) -> str:
@@ -21,17 +21,17 @@ class PasswordHasher:
 
 
 class AuthManager:
-    '''
-    Class to manage user registration, user login and validating usernames & passwords
+    """
+    Class to manage user registration, login and validation
 
-    '''
+    """
 
-    '''
-    Class constructor that takes the database path when creating an object of its type
-    '''
     def __init__(self, db: DatabaseManager):
         self.db = db
 
+    # ----------------------------
+    # Username validation
+    # ----------------------------
     @staticmethod
     def validate_username(username: str) -> Tuple[bool, str]:
         if len(username) < 3:
@@ -40,6 +40,9 @@ class AuthManager:
             return False, "Username contains invalid characters."
         return True, "Valid username."
 
+    # ----------------------------
+    # Password validation
+    # ----------------------------
     @staticmethod
     def validate_password(password: str) -> Tuple[bool, str]:
         if " " in password:
@@ -63,45 +66,55 @@ class AuthManager:
         )
         return row is not None
 
+
+
+
     def register_user(self, username: str, password: str, role: str = "user") -> Tuple[bool, str]:
-        
-        '''
-        Call the validation methods to check the username and password
-  
-        '''
+        # Validate username
         is_valid, msg = self.validate_username(username)
         if not is_valid:
             return False, msg
 
+        # Validate password
         is_valid, msg = self.validate_password(password)
         if not is_valid:
             return False, msg
 
+        # Check if user already exists
         if self.user_exists(username):
             return False, f"Username '{username}' already exists."
 
-        '''
-        Produce hashed password by calling the static method hash_password from the class PasswordHasher
-        '''
+        # Hash the password
         hashed = PasswordHasher.hash_password(password)
 
-        
+        # Insert user
         self.db.execute_query(
             "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
             (username, hashed, role)
         )
-        return True, f"User '{username}' registered successfully."
 
-    def login_user(self, username: str, password: str) -> Optional[dict]:
+
         row = self.db.fetch_one(
-            "SELECT username, password_hash, role FROM users WHERE username = ?",
+            "SELECT id FROM users WHERE username = ?", (username,)
+        )
+        user_id = row[0] if row else None
+
+        return True, f"User '{username}' registered successfully with ID {user_id}."
+
+
+    def login_user(self, username: str, password: str) -> Tuple[bool, str]:
+        row = self.db.fetch_one(
+            "SELECT password_hash, role FROM users WHERE username = ?",
             (username,)
         )
+
         if row is None:
-            return None
+            return False, "Username not found!"
 
-        username_db, password_hash_db, role_db = row
+        password_hash_db, role_db = row
+
         if PasswordHasher.check_password(password, password_hash_db):
-            return {"username": username_db, "role": role_db}
+            return True, f"Login successful for Role {role_db}!"
+        else:
+            return False, "Incorrect password."
 
-        return None
