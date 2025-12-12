@@ -139,7 +139,7 @@ elif st.session_state.logged_in:
             font_weight : bold;
             line-height: 1.5;
         ">
-            You are now logged in. Select a dashboard from the sidebar to explore the below listed domains.
+            You are now logged in. Select a dashboard from the sidebar to explore one of the below listed domains.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -171,7 +171,7 @@ elif st.session_state.logged_in:
       
 if st.session_state.logged_in:
     st.sidebar.title(f"Welcome, {st.session_state.username} 👋")
-
+    
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
         st.session_state.username = ""
