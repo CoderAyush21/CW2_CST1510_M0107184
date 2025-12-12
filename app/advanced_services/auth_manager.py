@@ -50,13 +50,13 @@ class AuthManager:
         if len(password) <= 8:
             return False, "Password must be more than 8 characters."
         if not any(c.isupper() for c in password):
-            return False, "Must contain at least one uppercase letter."
+            return False, "Password must contain at least one uppercase letter."
         if not any(c.islower() for c in password):
-            return False, "Must contain at least one lowercase letter."
+            return False, "Password must contain at least one lowercase letter."
         if not any(c.isdigit() for c in password):
-            return False, "Must contain at least one digit."
+            return False, "Password must contain at least one digit."
         if not any(c in "@#$%^&*!?" for c in password):
-            return False, "Must contain at least one special character."
+            return False, "Password must contain at least one special character."
         return True, "Strong password."
 
 
@@ -99,7 +99,7 @@ class AuthManager:
         )
         user_id = row[0] if row else None
 
-        return True, f"User '{username}' registered successfully with ID {user_id}."
+        return True, f"User '{username}' registered successfully with ID {user_id}. You can now Login ! "
 
 
     def login_user(self, username: str, password: str) -> Tuple[bool, str]:

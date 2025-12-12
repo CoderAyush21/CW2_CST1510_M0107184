@@ -1,7 +1,5 @@
 import streamlit as st
 from app.services.analyticalQueries import get_large_datasets, get_datasets_by_uploader, get_dataset_upload_trends_monthly
-from app.data.datasets import get_all_datasets, insert_dataset, update_dataset_name,delete_dataset
-from app.data.db import connect_database
 import plotly.express as px
 import pandas as pd
 from datetime import datetime
@@ -11,6 +9,12 @@ from google import genai
 from google.genai import types
 # Use of gemini API
 client_dataset= genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+
+from app.advanced_services.database_manager import DatabaseManager
+from models.dataset_class import Dataset
+
+
 
 st.set_page_config(
     page_title="Data Science",
@@ -26,13 +30,44 @@ if st.session_state.get("logged_in") != True:
      st.switch_page("Home.py")
     st.stop()
 
-conn=connect_database()
-# get all datasets
-df_datasets= get_all_datasets()
+
+db = DatabaseManager("DATA/intelligence_platform.db")
+db.connect()
+
+def load_datasets() -> list[Dataset]:
+    rows = db.fetch_all(
+        "SELECT dataset_id, name, rows, columns, uploaded_by, upload_date FROM datasets_metadata"
+    )
+    datasets_list = []
+    for row in rows:
+        dataset = Dataset(
+            dataset_id=row[0],
+            name=row[1],
+            rows=row[2],
+            columns=row[3],
+            uploaded_by=row[4],
+            upload_date=row[5] if row[5] else datetime.now()
+        )
+        datasets_list.append(dataset)
+    return datasets_list
+
+
+datasets = load_datasets()
+
+df_datasets = pd.DataFrame([{
+    "dataset_id": d.get_id(),
+    "name": d.get_name(),
+    "rows": d.get_rows(),
+    "columns": d.get_columns(),
+    "uploaded_by": d.get_uploaded_by(),
+    "upload_date": d.get_upload_date()
+} for d in datasets])
+
+
 total_datasets= len(df_datasets)
 
 # get all large datasets
-df_large_datasets = get_large_datasets(conn, min_rows=1000)
+df_large_datasets = get_large_datasets(db, min_rows=1000)
 large_datasets= len(df_large_datasets)
 
 # Insights for datasets
@@ -75,10 +110,10 @@ with col1:
         height=600
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
-df_datasets_by_uploader= get_datasets_by_uploader(conn)
-df_dataset_upload_trends= get_dataset_upload_trends_monthly(conn)
+df_datasets_by_uploader= get_datasets_by_uploader(db)
+df_dataset_upload_trends= get_dataset_upload_trends_monthly(db)
 col1,col2= st.columns([0.5,0.5])
 with col1:
     st.markdown("### Datasets Uploads by Users")
@@ -106,12 +141,13 @@ with col2:
     markers=True,
 )
 
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
 
 
 
 # Get all datsets ids as list for the update form
 all_datasets_ids= df_datasets['dataset_id'].tolist()
+
 st.subheader("Manage Datasets")
 col1,col2= st.columns([0.8,0.2])
 with col1:
@@ -129,22 +165,34 @@ with col1:
         if submitted:
             dataset_added_datetime= datetime.now().date()
             try :
-                insert_dataset(name,rows,columns,uploaded_by)
+                new_dataset = Dataset(
+                    dataset_id=None,
+                    name=name,
+                    rows=rows,
+                    columns=columns,
+                    uploaded_by=uploaded_by,
+                    upload_date=dataset_added_datetime
+                )
+                new_dataset.insert_dataset(db)
                 st.success("Dataset added")
                 time.sleep(2)
                 st.rerun()
             except Exception as e:
                 st.error(f"Error adding dataset: {e}")
+
+
     elif action_choice == " Update Dataset Name":
         st.markdown("### Update Dataset Name")
         with st.form("Update Dataset name"):
             dataset_id = st.selectbox("Dataset ID", all_datasets_ids)
             new_name = st.text_input("New Dataset Name")
             updated = st.form_submit_button("Update Name")
+
         if updated:
             try:
-                success = update_dataset_name(dataset_id, new_name)
-                if success:
+                dataset_to_update = Dataset.load_by_id(db, dataset_id)
+                if dataset_to_update:
+                    dataset_to_update.update_name(db, new_name)
                     st.success("Dataset Name updated")
                     time.sleep(2)
                     st.rerun()
@@ -152,6 +200,8 @@ with col1:
                     st.error("Dataset ID not found")
             except Exception as e:
                 st.error(f"Error updating dataset name: {e}")
+                
+
     elif action_choice == "Delete Dataset":
         st.markdown("### Delete Dataset")
         with st.form("Delete incident"):
@@ -161,8 +211,9 @@ with col1:
 
             if submitted:
                 if st.checkbox("Confirm deletion of dataset"):                
-                    deleted = delete_dataset(dataset_id)
-                    if deleted:
+                    dataset_to_delete = Dataset.load_by_id(db, dataset_id)
+                    if dataset_to_delete:
+                            dataset_to_delete.delete(db)
                             st.success("Dataset deleted")
                             time.sleep(2)
                             st.rerun()
@@ -197,13 +248,16 @@ with col1:
 
             if st.button("Upload CSV"):
                 for _, row in csv_df.iterrows():
-                        insert_dataset(
-                            row["name"],
-                            row["rows"],
-                            row["columns"],
-                            row["uploaded_by"],
-                            datetime.now().date()
+                        dataset = Dataset(
+                            dataset_id=None,
+                            name=row["name"],
+                            rows=row["rows"],
+                            columns=row["columns"],
+                            uploaded_by=row["uploaded_by"],
+                            upload_date=row.get("upload_date", datetime.now())
                         )
+                        dataset.insert_dataset(db)
+                        
                 st.success("CSV data added successfully!")
                 time.sleep(2)
                 st.rerun()

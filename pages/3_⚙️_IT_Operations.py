@@ -1,9 +1,7 @@
 import streamlit as st
-from app.data.db import connect_database
 import plotly.express as px
 import pandas as pd 
 from datetime import datetime
-from app.data.tickets import insert_ticket, get_all_tickets, update_ticket_status, delete_ticket
 from app.services.analyticalQueries import get_avg_resolution_by_staff, get_high_priority_tickets_by_status, get_slow_resolution_tickets_by_status, get_tickets_by_priority, get_high_priority_tickets, get_slow_resolution_tickets_only
 import time
 
@@ -11,6 +9,10 @@ from google import genai
 from google.genai import types
 # Use of gemini API
 client_ticket= genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
+from app.advanced_services.database_manager import DatabaseManager
+from models.tickets_class import IT_Ticket
+
 
 
 st.set_page_config(
@@ -26,27 +28,59 @@ if st.session_state.get("logged_in") != True:
      st.switch_page("Home.py")
     st.stop()
 
-# Connect database
-conn=connect_database()
+db = DatabaseManager("DATA/intelligence_platform.db")
+db.connect()
 
-df_ticket= get_all_tickets()
+
+def load_tickets() -> list[IT_Ticket]:
+    rows = db.fetch_all(
+        "SELECT ticket_id, priority, description, status, assigned_to, resolution_time_hours, created_at FROM it_tickets"
+    )
+    tickets_list = []
+    for row in rows:
+        ticket = IT_Ticket(
+            ticket_id=row[0],
+            priority=row[1],
+            description=row[2],
+            status=row[3],
+            assigned_to=row[4],
+            resolution_time_hours=row[5],
+            created_at=row[6] if row[6] else datetime.now()
+        )
+        tickets_list.append(ticket)
+    return tickets_list
+
+
+tickets = load_tickets()
+
+df_ticket = pd.DataFrame([{
+    "ticket_id": t.get_id(),
+    "priority": t.get_priority(),
+    "description": t.get_description(),
+    "status": t.get_status(),
+    "assigned_to": t.get_assigned_to(),
+    "resolution_time_hours": t.get_resolution_time_hours(),
+    "created_at": t.get_created_at()
+} for t in tickets])
+
+
 
 # Find total tickets
 total_tickets= len(df_ticket)
 
-high_priority= get_high_priority_tickets(conn)
+high_priority= get_high_priority_tickets(db)
 
 # calculate % of high priority tickets of total tickets
 total_high_priority= len(high_priority)
 high_priority_percentage = (total_high_priority / total_tickets * 100) if total_tickets > 0 else 0
 
 ##
-df_slow_resolution = get_slow_resolution_tickets_by_status(conn, min_resolution_time=24)
+df_slow_resolution = get_slow_resolution_tickets_by_status(db, min_resolution_time=24)
 ##
 
 # Find slow resolution tickets only
 
-slow_tickets= get_slow_resolution_tickets_only(conn, min_resolution_time=24)
+slow_tickets= get_slow_resolution_tickets_only(db, min_resolution_time=24)
 # get slow resolution tickets total
 total_slow_tickets= len(slow_tickets)
 
@@ -79,7 +113,7 @@ col1,col2= st.columns([0.8,0.2])
 with col1:
 
     st.subheader("Service Desk Performance: Average Resolution Time by Staff Members")
-    df_resolution_times = get_avg_resolution_by_staff(conn)
+    df_resolution_times = get_avg_resolution_by_staff(db)
 
     fig = px.bar(
         df_resolution_times,
@@ -95,12 +129,12 @@ with col1:
         yaxis_title="Average Resolution Time (hours)",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width = "stretch")
 
 col1,col2= st.columns([0.8,0.2])
 with col1:
     st.subheader("High Priority Tickets by Status")
-    df_high_priority = get_high_priority_tickets_by_status(conn)
+    df_high_priority = get_high_priority_tickets_by_status(db)
 
     fig2 = px.bar(
         df_high_priority,
@@ -118,11 +152,11 @@ with col1:
         yaxis=dict(autorange="reversed"), 
     )
 
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width = "stretch")
 
 
 
-df_priority_level = get_tickets_by_priority(conn)
+df_priority_level = get_tickets_by_priority(db)
 col1,col2= st.columns([0.5,0.5])
 with col2:
     st.markdown("### Tickets Distribution by Priority Level")
@@ -142,7 +176,7 @@ with col2:
         textinfo='percent+label',
         marker=dict(line=dict(color='white', width=2))
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width = "stretch")
 
 with col1:
     st.markdown("### Tickets with Slow Resolution Times by Status")
@@ -161,7 +195,7 @@ with col1:
         xaxis_title="Ticket Status",
         yaxis_title="Average Resolution Time (hours)",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width = "stretch")
 
 
 
@@ -189,7 +223,16 @@ with col1:
         if submitted:
             ticket_datetime= datetime.now()
             try :
-                insert_ticket(priority,description,status, assigned_to,resolution_time,ticket_datetime)
+                ticket = IT_Ticket(
+                    ticket_id=None,
+                    priority=priority,
+                    description=description,
+                    status=status,
+                    assigned_to=assigned_to,
+                    resolution_time_hours=resolution_time,
+                    created_at=datetime.now()
+                )
+                ticket.insert_ticket(db)
                 st.success("Ticket added")
                 time.sleep(2)
                 st.rerun()
@@ -199,13 +242,13 @@ with col1:
     elif action_choice == " Update Ticket Status":
         st.markdown("### Update Ticket Status")
         with st.form("Update Ticket status"):
-            incident_id = st.selectbox("Ticket ID", ticket_all__ids)
+            ticket_id = st.selectbox("Ticket ID", ticket_all__ids)
             new_status = st.selectbox("New Status", ["Open", "Closed", "In Progress","Resolved"])
             updated = st.form_submit_button("Update Status")
         if updated:
             try:
-                success = update_ticket_status(incident_id, new_status)
-                if success:
+                ticket = IT_Ticket.load_by_id(db, ticket_id)
+                if ticket and ticket.update_status(db, new_status):
                     st.success("Ticket status updated")
                     time.sleep(2)
                     st.rerun()
@@ -223,8 +266,8 @@ with col1:
 
             if submitted:
                 if st.checkbox("Confirm deletion of ticket"):                
-                    deleted = delete_ticket(ticket_id)
-                    if deleted:
+                    ticket = IT_Ticket.load_by_id(db, ticket_id)
+                    if ticket and ticket.delete(db):
                             st.success("Ticket deleted")
                             time.sleep(2)
                             st.rerun()
@@ -259,14 +302,16 @@ with col1:
 
             if st.button("Upload CSV"):
                 for _, row in csv_df.iterrows():
-                        insert_ticket(
-                            row["priority"],
-                            row["description"],
-                            row["status"],
-                            row["assigned_to"],
-                            row["resolution_time_hours"],
-                            datetime.now()
+                        ticket = IT_Ticket(
+                            ticket_id=None,
+                            priority=row["priority"],
+                            description=row["description"],
+                            status=row["status"],
+                            assigned_to=row.get("assigned_to"),
+                            resolution_time_hours=row.get("resolution_time_hours"),
+                            created_at=row.get("created_at", datetime.now())
                         )
+                        ticket.insert_ticket(db)
                 st.success("CSV data added successfully!")
                 time.sleep(2)
                 st.rerun()
