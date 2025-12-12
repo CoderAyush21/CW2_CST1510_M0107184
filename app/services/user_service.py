@@ -3,6 +3,10 @@ import sqlite3
 import bcrypt
 from pathlib import Path
 
+import pandas as pd
+
+from app.data.users import insert_user, get_user_by_username
+
 print("=" * 60)
 print("User Authentication Service")
 print("=" * 60)
@@ -21,28 +25,17 @@ def verify_password(plain_text_password, hashed_password) :
     hashed_password_bytes= hashed_password.encode("utf-8")
     return bcrypt.checkpw(password_bytes, hashed_password_bytes)
 
-# function to check if database exists or if username already in database table
+# function to check if username already in database table
 def user_exists(userName):
-    
-    conn = connect_database()
-    if not conn:
-        return False
-        
-    cursor = conn.cursor()
+
     
     try:
-        # Use a SELECT query to find the user
-        cursor.execute("SELECT 1 FROM users WHERE username = ?", (userName,))
-        user = cursor.fetchone()
-        conn.close()
-        
-        return user is not None
+        # Use a helper function
+        df = get_user_by_username(userName)
+        return not df.empty
     except sqlite3.Error as e:
         print(f"Error checking user existence: {e}")
         return False
-    finally:
-        if conn:
-            conn.close()
 
  # function for user registration
 def register_user(user_name, password,role) :
@@ -60,20 +53,14 @@ def register_user(user_name, password,role) :
     
     hashed_password = hash_password(password) 
     
-    conn = connect_database()
-    cursor = conn.cursor()
+ 
     
     try:
-        cursor.execute(
-            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-            (user_name, hashed_password, role)
-        )
-        conn.commit()
-        return True, f"User '{user_name}' registered successfully."
+        user_id = insert_user(user_name, hashed_password, role)
+        return True, f"User '{user_name}' registered successfully with ID {user_id}."
     except sqlite3.Error as e:
         return False, "Registration failed due to a database error."
-    finally:
-        conn.close()
+
 
 
  # function to login existing user
